@@ -33,11 +33,13 @@ def load_artifacts():
         return None, None, None
 
 
-@st.cache_data
+GDRIVE_FILE_ID = "1JpRmEoQEk2l7NzJ5bc5vaC7NR2rgOKwX"
+GDRIVE_URL = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
+
+
+@st.cache_data(show_spinner="Loading full 60,337 clinical trials dataset from Google Drive...")
 def load_data():
-    json_sample_path = os.path.join(config.BASE_DIR, "data", "raw", "clinical_trials_sample.json")
-    
-    # 1. Try full raw data path if it's the real 60,337 row CSV (>1000 rows)
+    # 1. Try local full raw file if > 1000 rows
     if os.path.exists(config.RAW_DATA_PATH):
         try:
             df = pd.read_csv(config.RAW_DATA_PATH)
@@ -46,12 +48,33 @@ def load_data():
         except Exception:
             pass
 
-    # 2. Try multi-category JSON sample data (800 rows across all 8 classes)
+    # 2. Try previously downloaded full dataset from Google Drive
+    downloaded_csv_path = os.path.join(config.BASE_DIR, "data", "raw", "full_gdrive_dataset.csv")
+    if os.path.exists(downloaded_csv_path) and os.path.getsize(downloaded_csv_path) > 1000000:
+        try:
+            df = pd.read_csv(downloaded_csv_path)
+            if len(df) > 1000:
+                return df
+        except Exception:
+            pass
+
+    # 3. Download full dataset directly from Google Drive using gdown
+    try:
+        import gdown
+        os.makedirs(os.path.dirname(downloaded_csv_path), exist_ok=True)
+        gdown.download(GDRIVE_URL, downloaded_csv_path, quiet=True)
+        if os.path.exists(downloaded_csv_path):
+            df = pd.read_csv(downloaded_csv_path)
+            if len(df) > 1000:
+                return df
+    except Exception as e:
+        st.warning(f"Could not fetch full Google Drive dataset: {e}")
+
+    # 4. Fallback to multi-category sample JSON if download fails
+    json_sample_path = os.path.join(config.BASE_DIR, "data", "raw", "clinical_trials_sample.json")
     if os.path.exists(json_sample_path):
         try:
-            df = pd.read_json(json_sample_path)
-            if not df.empty:
-                return df
+            return pd.read_json(json_sample_path)
         except Exception:
             pass
 
