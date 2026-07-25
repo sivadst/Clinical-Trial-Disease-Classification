@@ -126,14 +126,60 @@ elif page == "Home / Overview":
     - **Production-Grade Pipeline**: Built with robust preprocessing and validated ML models.
     """)
 
+    col1, col2, col3 = st.columns(3)
     if not df.empty:
-        col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total Samples", f"{len(df):,}")
         with col2:
-            st.metric("Disease Categories", f"{df[config.TARGET_COLUMN].nunique()}")
+            st.metric("Disease Categories", f"{df[config.TARGET_COLUMN].nunique() if config.TARGET_COLUMN in df.columns else 8}")
         with col3:
             st.metric("Features (Raw)", f"{len(df.columns)}")
+    else:
+        with col1:
+            st.metric("Total Samples", "60,337 (Training)")
+        with col2:
+            st.metric("Disease Categories", "8 Classes")
+        with col3:
+            st.metric("Features (Raw)", "16 Features")
+
+    st.write("---")
+
+    # --- 🩺 Disease Categories Section ---
+    st.subheader("🩺 Disease Categories")
+    st.caption("The model classifies clinical trial summaries into these disease categories.")
+
+    disease_categories = [
+        {"name": "Breast Cancer", "key": "breast cancer", "icon": "🎗️"},
+        {"name": "Type 2 Diabetes", "key": "type 2 diabetes", "icon": "🩸"},
+        {"name": "COVID-19", "key": "covid-19", "icon": "🦠"},
+        {"name": "Anxiety", "key": "anxiety", "icon": "🧠"},
+        {"name": "Chronic Obstructive Pulmonary Disease (COPD)", "key": "chronic obstructive pulmonary disease", "icon": "🫁"},
+        {"name": "Rheumatoid Arthritis", "key": "rheumatoid arthritis", "icon": "🦴"},
+        {"name": "Glaucoma", "key": "glaucoma", "icon": "👁️"},
+        {"name": "Sickle Cell Anemia", "key": "sickle cell anemia", "icon": "🔬"},
+    ]
+
+    # Pre-calculate counts if dataset is loaded
+    val_counts = {}
+    if not df.empty and config.TARGET_COLUMN in df.columns:
+        val_counts = df[config.TARGET_COLUMN].astype(str).str.lower().value_counts().to_dict()
+
+    # Grid layout of 4 columns x 2 rows
+    cols = st.columns(4)
+    for idx, cat in enumerate(disease_categories):
+        col = cols[idx % 4]
+        key_lower = cat["key"].lower()
+        count = val_counts.get(key_lower, None)
+
+        with col:
+            with st.container(border=True):
+                st.markdown(f"**{cat['icon']} {cat['name']}**")
+                if count is not None:
+                    st.caption(f"📊 **{count:,}** samples")
+                else:
+                    st.caption("🎯 Model Target Category")
+
+    st.write("---")
 
     st.markdown("""
     ### System Architecture
