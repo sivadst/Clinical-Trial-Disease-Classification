@@ -35,23 +35,33 @@ def load_artifacts():
 
 @st.cache_data
 def load_data():
-    sample_path = os.path.join(config.BASE_DIR, "data", "raw", "clinical_trials_sample.csv")
+    json_sample_path = os.path.join(config.BASE_DIR, "data", "raw", "clinical_trials_sample.json")
+    csv_sample_path = os.path.join(config.BASE_DIR, "data", "raw", "clinical_trials_sample.csv")
     
-    # Try full raw data path first if available
+    # Try full raw data path first if available locally
     if os.path.exists(config.RAW_DATA_PATH):
         try:
             df = pd.read_csv(config.RAW_DATA_PATH)
-            # Verify it's not a 3-line LFS pointer file
             if len(df) > 10:
                 return df
         except Exception:
             pass
-            
-    # Fallback to sample data for demo/cloud deployment
-    if os.path.exists(sample_path):
+
+    # Try JSON sample data (not tracked by Git LFS) for Streamlit Cloud
+    if os.path.exists(json_sample_path):
         try:
-            df = pd.read_csv(sample_path)
-            return df
+            df = pd.read_json(json_sample_path)
+            if not df.empty:
+                return df
+        except Exception:
+            pass
+
+    # Try CSV sample data
+    if os.path.exists(csv_sample_path):
+        try:
+            df = pd.read_csv(csv_sample_path)
+            if len(df) > 10:
+                return df
         except Exception:
             pass
 
