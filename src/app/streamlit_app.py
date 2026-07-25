@@ -35,12 +35,27 @@ def load_artifacts():
 
 @st.cache_data
 def load_data():
-    try:
-        df = pd.read_csv(config.RAW_DATA_PATH)
-        return df
-    except Exception as e:
-        st.error(f"Failed to load dataset: {e}")
-        return pd.DataFrame()
+    sample_path = os.path.join(config.BASE_DIR, "data", "raw", "clinical_trials_sample.csv")
+    
+    # Try full raw data path first if available
+    if os.path.exists(config.RAW_DATA_PATH):
+        try:
+            df = pd.read_csv(config.RAW_DATA_PATH)
+            # Verify it's not a 3-line LFS pointer file
+            if len(df) > 10:
+                return df
+        except Exception:
+            pass
+            
+    # Fallback to sample data for demo/cloud deployment
+    if os.path.exists(sample_path):
+        try:
+            df = pd.read_csv(sample_path)
+            return df
+        except Exception:
+            pass
+
+    return pd.DataFrame()
 
 
 # Initialize objects
