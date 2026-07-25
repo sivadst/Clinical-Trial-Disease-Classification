@@ -1,164 +1,114 @@
 <p align="center">
-  <h1 align="center">🏥 Clinical Trial Disease Classification</h1>
+  <h1 align="center">🏥 Clinical Trial Disease Category Classification</h1>
   <p align="center">
-    <strong>Production-grade NLP pipeline for automatic disease category classification of clinical trial summaries</strong>
+    <strong>Production-grade NLP and Machine Learning application for automatic classification of clinical trial summaries into disease categories</strong>
   </p>
   <p align="center">
     <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.9+"></a>
+    <a href="https://streamlit.io/"><img src="https://img.shields.io/badge/streamlit-1.60%2B-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit"></a>
+    <a href="https://scikit-learn.org/"><img src="https://img.shields.io/badge/scikit--learn-1.3%2B-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white" alt="Scikit-Learn"></a>
+    <a href="#-machine-learning-pipeline"><img src="https://img.shields.io/badge/NLP-TF--IDF-00599C?style=for-the-badge" alt="NLP"></a>
+    <a href="#-model-performance"><img src="https://img.shields.io/badge/F1_Macro-0.9436-FF6F00?style=for-the-badge" alt="F1 Score"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22C55E?style=for-the-badge" alt="MIT License"></a>
-    <a href="#-results--performance"><img src="https://img.shields.io/badge/F1_Macro-0.9436-FF6F00?style=for-the-badge" alt="F1 Score"></a>
-    <a href="#-launch-the-application"><img src="https://img.shields.io/badge/Streamlit-App-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit"></a>
-    <a href=".github/workflows/ci.yml"><img src="https://img.shields.io/badge/CI-passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white" alt="CI"></a>
+    <a href="https://github.com/sivadst/Clinical-Trial-Disease-Classification"><img src="https://img.shields.io/badge/version-v1.0.0-blue?style=for-the-badge" alt="Version"></a>
   </p>
 </p>
 
 <br/>
 
-## 📖 Overview
+## 🌐 Live Demo
 
-Classifying clinical trials into disease categories is a critical bottleneck for medical researchers, trial coordinators, and healthcare data engineers who work with vast quantities of unstructured text from [ClinicalTrials.gov](https://clinicaltrials.gov/). Manual categorization is slow, error-prone, and does not scale.
-
-This project delivers an **end-to-end Machine Learning solution** that automatically classifies clinical trial brief summaries into **8 distinct disease categories** — achieving an **F1 Macro score of 0.9436** using a LinearSVC model with TF-IDF features. The entire pipeline, from data ingestion through model evaluation, is wrapped in an interactive **Streamlit dashboard** for real-time and batch predictions.
-
-### ⚡ Key Highlights
-
-| | |
-|---|---|
-| 🎯 **94.36% F1 Macro** | Production-level accuracy across all 8 disease classes |
-| 🧠 **5 ML Models Benchmarked** | Naive Bayes, Logistic Regression, Random Forest, LinearSVC, XGBoost |
-| 🩺 **Medical-Aware NLP** | Custom preprocessing that expands abbreviations and preserves clinical negations |
-| 📊 **60,337 Clinical Trials** | Trained on real ClinicalTrials.gov data |
-| 🖥️ **Streamlit Dashboard** | Multi-page app with real-time predictions, batch inference, and data exploration |
-| ⚙️ **Fully Automated Pipeline** | One command trains, evaluates, tunes, and exports all artifacts |
+🚀 **Experience the live interactive web application:**  
+👉 **[https://clinical-trial-disease-classification.streamlit.app/](https://clinical-trial-disease-classification.streamlit.app/)**
 
 ---
 
-## 🏗️ Architecture
+## 📖 Project Overview
 
-The project follows a **decoupled, object-oriented architecture** built on industry-standard design patterns (Strategy, Template, Singleton) for maximum extensibility and testability.
+Classifying clinical trials into accurate disease categories is a vital bottleneck in medical research, clinical data management, and trial recruitment. Every year, tens of thousands of unstructured trial protocols and brief summaries are published on **[ClinicalTrials.gov](https://clinicaltrials.gov/)**. Manual categorization is time-consuming, costly, and subject to human error.
 
-```mermaid
-graph LR
-    RawData[(Raw CSV Data)] --> DataLoader
-    DataLoader --> DataSplitter
-    DataSplitter --> Preprocessor
-    Preprocessor --> |TF-IDF + Cleaning| Features
-    Features --> Trainer
-    Trainer --> |Cross-validation| Evaluator
-    Evaluator --> ModelArtifacts[(Saved Models)]
-    ModelArtifacts --> StreamlitApp
-```
+This project delivers an **end-to-end Machine Learning and Natural Language Processing (NLP) solution** that automatically classifies clinical trial summaries into **8 distinct disease categories** with a **95.19% test accuracy** and an **F1 Macro score of 0.9436** using a calibrated **LinearSVC** model.
 
-> **Design Patterns Used:**
-> - **Strategy Pattern** — `BaseClassifier` abstraction guarantees all algorithms honor the same contract (`train`, `predict`, `evaluate`, `save`, `load`)
-> - **Template / Pipeline Pattern** — `TextPreprocessor` applies a deterministic sequence of NLP transformations
-> - **Singleton Pattern** — Centralized `Settings` (Pydantic) and `Logger` ensure consistency across the entire codebase
+### 🎯 Key Purpose & Value
+- **Automated Structuring**: Transforms raw medical text into structured disease categories.
+- **Medical-Aware Preprocessing**: Preserves critical clinical negations (`no`, `not`, `denies`, `without`) while expanding common medical abbreviations (`pt` → `patient`, `dx` → `diagnosis`).
+- **Production Dashboard**: Interactive multi-page Streamlit web app providing real-time single predictions, batch CSV processing, data exploration, and benchmark visualization.
 
 ---
 
 ## ✨ Features
 
-- **🩺 Medical-Aware Text Preprocessing** — Custom cleaning pipeline that expands abbreviations (`pt` → `patient`, `dx` → `diagnosis`) and explicitly preserves clinical negations (`no`, `not`, `denies`, `absent`)
-- **🤖 Multiple ML Classifiers** — Benchmarks 5 algorithms: MultinomialNB, Logistic Regression, Random Forest, LinearSVC (with CalibratedClassifierCV), and XGBoost
-- **⚖️ Class Imbalance Handling** — Employs stratified splits, balanced class weights, and F1 Macro optimization to ensure minority classes are classified fairly
-- **🔧 Automated Hyperparameter Tuning** — `RandomizedSearchCV` on the top-2 performing models with F1 Macro scoring
-- **🖥️ Production-Ready Streamlit App** — Multi-page dashboard with real-time single predictions, batch CSV inference, data exploration, EDA visualizations, and model performance analytics
-- **📊 Auto-Generated Reports** — EDA reports, word clouds, confusion matrices, and model comparison charts generated automatically during training
-- **🧪 Comprehensive Test Suite** — Pytest tests covering data loading, preprocessing, model training, splitting, and integration workflows
-- **🔄 CI/CD Pipeline** — GitHub Actions workflow for automated linting (flake8), type checking (mypy), and testing (pytest) across Python 3.10–3.12
+- ✔ **Real-Time Clinical Text Classification**: Predict disease categories instantly from trial brief summaries.
+- ✔ **Medical-Aware NLP Preprocessing**: Custom cleaning pipeline preserving clinical negations and expanding medical terminology.
+- ✔ **TF-IDF Feature Extraction**: Sub-word unigram & bigram n-gram extraction capped at 10,000 features.
+- ✔ **Multi-Model Benchmarking**: Trains and evaluates 5 machine learning algorithms (MultinomialNB, Logistic Regression, Random Forest, LinearSVC, XGBoost).
+- ✔ **Class Imbalance Handling**: Stratified splitting, balanced class weighting, and F1-Macro optimization.
+- ✔ **5 Instant Test Samples**: Pre-loaded clinical summaries for 1-click model testing.
+- ✔ **Interactive Data Explorer**: Full dataset search, disease filtering, scrollable preview, and CSV export.
+- ✔ **Batch CSV Prediction**: Bulk inference for uploaded CSV datasets with confidence scores.
+- ✔ **Comprehensive Performance Analytics**: Displays confusion matrices, classification reports, and cross-validation metrics.
+- ✔ **Production-Quality UI**: Fully responsive, dark-mode optimized Streamlit web interface.
 
 ---
 
-## 🚀 Quick Start
+## 🖼️ Application Screenshots
 
-### Prerequisites
-
-- Python 3.9 or higher
-- pip package manager
-
-### 1. Clone & Setup Environment
-
-```bash
-git clone https://github.com/sivadst/Clinical-Trial-Disease-Classification.git
-cd Clinical-Trial-Disease-Classification
-python -m venv .venv
-source .venv/bin/activate        # On macOS/Linux
-# .venv\Scripts\activate         # On Windows
-pip install -r requirements.txt
-```
-
-### 2. Prepare the Data
-
-Download `clinical_trials_raw_patient2trial_conditions.csv` from [ClinicalTrials.gov](https://clinicaltrials.gov/) and place it in the `data/` directory.
-
-### 3. Train the Pipeline
-
-```bash
-python scripts/train.py
-```
-
-This single command executes the entire pipeline:
-1. Loads and validates the raw dataset
-2. Splits data with stratification (70% train / 10% val / 20% test)
-3. Applies the full NLP preprocessing pipeline
-4. Trains all 5 classifiers with cross-validation
-5. Runs hyperparameter tuning on the top-2 models
-6. Evaluates on the held-out test set
-7. Exports all artifacts to `models/`:
-
-| Artifact | Description |
+| Page View | Preview & Description |
 |---|---|
-| `best_model.pkl` | Serialized best-performing model |
-| `tfidf_vectorizer.pkl` | Fitted TF-IDF vectorizer |
-| `label_encoder.pkl` | Fitted label encoder |
-| `metrics.json` | Per-model evaluation metrics |
-| `classification_report.txt` | Full sklearn classification report |
+| **Home Dashboard** | ![Class Distribution](reports/figures/class_distribution.png)<br/>*Key dataset statistics, disease cards, and project overview metrics.* |
+| **Model Performance** | ![F1 Score Comparison](reports/figures/model_comparison_f1.png)<br/>*Benchmark comparison charts across all 5 trained classifiers.* |
+| **Confusion Matrix** | ![Confusion Matrix](reports/figures/confusion_matrix.png)<br/>*LinearSVC confusion matrix evaluating test set performance.* |
 
-> **Note:** You must run `python scripts/train.py` before launching the Streamlit app. The `.pkl` artifacts are gitignored and must be generated locally.
+---
 
-### 4. Launch the Application
+## 🩺 Supported Disease Categories
 
-```bash
-streamlit run src/app/streamlit_app.py
+The model categorizes clinical trials across **8 major medical condition categories** derived from ClinicalTrials.gov data (60,337 total records):
+
+| Icon | Disease Category | Target Key | Sample Count | Domain Description |
+|:---:|:---|:---|:---:|:---|
+| 🎗️ | **Breast Cancer** | `breast cancer` | 16,301 | Oncology trials focusing on breast carcinomas and systemic therapies. |
+| 🩸 | **Type 2 Diabetes** | `type 2 diabetes` | 11,467 | Endocrine research evaluating insulin control, HbA1c, and glycemic health. |
+| 🦠 | **COVID-19** | `covid-19` | 10,153 | Infectious disease studies investigating SARS-CoV-2 treatments and vaccines. |
+| 🧠 | **Anxiety** | `anxiety` | 9,286 | Psychiatric trials examining generalized anxiety, panic disorders, and CBT. |
+| 🫁 | **COPD** | `chronic obstructive pulmonary disease` | 6,181 | Pulmonology studies on obstructive pulmonary disease and bronchodilators. |
+| 🦴 | **Rheumatoid Arthritis** | `rheumatoid arthritis` | 3,637 | Autoimmune & rheumatology research targeting joint inflammation. |
+| 👁️ | **Glaucoma** | `glaucoma` | 2,173 | Ophthalmology trials for intraocular pressure and optic nerve protection. |
+| 🔬 | **Sickle Cell Anemia** | `sickle cell anemia` | 1,139 | Hematology research on hemoglobin disorders and gene therapies. |
+
+---
+
+## 🏗️ Machine Learning Pipeline
+
+The pipeline follows a decoupled, object-oriented software design leveraging the **Strategy**, **Template**, and **Singleton** design patterns:
+
+```mermaid
+graph TD
+    A[Raw Dataset 60,337 Rows] --> B[Data Loader & Validation]
+    B --> C[Stratified Data Splitter 70/10/20]
+    C --> D[Medical Text Preprocessor]
+    D --> |Cleaning & Abbreviation Expansion| E[TF-IDF Vectorizer max 10k features]
+    E --> F[Model Trainer 5 Classifiers]
+    F --> |Cross-Validation & Hyperparameter Search| G[Model Evaluator F1 Macro]
+    G --> H[Model Artifact Export .pkl]
+    H --> I[Streamlit Multi-Page Web App]
 ```
 
 ---
 
-## 📊 Dataset
+## 🛠️ Tech Stack
 
-| Property | Value |
+| Category | Technologies |
 |---|---|
-| **Source** | [ClinicalTrials.gov](https://clinicaltrials.gov/) |
-| **Total Samples** | 60,337 |
-| **Target Variable** | `source_condition_query` (8 disease categories) |
-| **Text Feature** | `brief_summary` (avg. ~688 characters) |
-| **Imbalance Ratio** | 14.31× (max class / min class) |
-
----
-
-## 🔬 Methodology
-
-1. **Data Splitting** — Stratified 70/10/20 (Train / Validation / Test) to maintain class proportions across all splits
-2. **Text Feature Extraction** — TF-IDF Vectorizer with unigrams + bigrams, capped at 10,000 features, `min_df=2`, `max_df=0.95`
-3. **Model Training** — All 5 classifiers trained with balanced class weights where applicable
-4. **Hyperparameter Optimization** — `RandomizedSearchCV` on the top-2 cross-validated models, optimizing F1 Macro
-5. **Evaluation** — F1 Macro as the primary metric to penalize majority-class bias and ensure equitable performance across all disease categories
-
----
-
-## 📈 Results & Performance
-
-The primary evaluation metric is **F1 Macro**, which treats every disease class with equal importance regardless of frequency. The best-performing model was **LinearSVC**, achieving:
-
-| Model | Accuracy | F1 Macro |
-|:---|:---:|:---:|
-| **LinearSVC** | **0.9519** | **0.9436** |
-| XGBoost | 0.9490 | 0.9414 |
-| Logistic Regression | 0.9471 | 0.9391 |
-| Random Forest | 0.9432 | 0.9365 |
-| Multinomial NB | 0.9059 | 0.8934 |
-
-> All models achieve >89% F1 Macro, demonstrating that TF-IDF with classical ML provides strong baseline performance for clinical text classification without the computational overhead of deep learning approaches.
+| **Language** | Python 3.9+ |
+| **Machine Learning** | Scikit-Learn, XGBoost, Joblib |
+| **Natural Language Processing** | NLTK, TF-IDF Vectorizer |
+| **Data Manipulation** | Pandas, NumPy |
+| **Visualization** | Matplotlib, Seaborn, WordCloud, Plotly |
+| **Web Framework** | Streamlit (v1.60+) |
+| **Configuration & Logging** | Pydantic BaseSettings, Python Logging |
+| **Testing & CI/CD** | Pytest, Pytest-Cov, GitHub Actions |
+| **Code Quality** | Black, Flake8, Mypy |
 
 ---
 
@@ -166,119 +116,182 @@ The primary evaluation metric is **F1 Macro**, which treats every disease class 
 
 ```
 Clinical-Trial-Disease-Classification/
-│
 ├── config/                      # Centralized configuration (Pydantic BaseSettings)
 │   ├── __init__.py
-│   └── settings.py              # All paths, model params, TF-IDF config, classifier list
-│
-├── src/                         # Core source code
+│   └── settings.py              # Path definitions, hyperparameter grids, TF-IDF settings
+├── src/                         # Core application source code
 │   ├── app/
-│   │   └── streamlit_app.py     # Multi-page Streamlit dashboard
+│   │   ├── __init__.py
+│   │   └── streamlit_app.py     # Multi-page Streamlit web dashboard
 │   ├── data/
-│   │   ├── loader.py            # DataLoader with validation and null checks
-│   │   ├── preprocessor.py      # TF-IDF + medical NLP preprocessing
-│   │   └── splitter.py          # Stratified train/val/test splitting
-│   ├── features/                # Feature engineering (extensible)
+│   │   ├── __init__.py
+│   │   ├── loader.py            # DataLoader with validation checks
+│   │   ├── preprocessor.py      # Medical-aware NLP text preprocessor
+│   │   └── splitter.py          # Stratified train/validation/test splitter
+│   ├── features/                # Feature engineering modules
+│   │   └── __init__.py
 │   ├── models/
-│   │   ├── base_model.py        # Abstract BaseClassifier (Strategy pattern)
-│   │   ├── classifiers.py       # SklearnClassifierWrapper + ModelFactory
-│   │   ├── trainer.py           # ModelTrainer with CV and hyperparameter search
-│   │   └── evaluator.py         # ModelEvaluator with plotting
+│   │   ├── __init__.py
+│   │   ├── base_model.py        # Abstract BaseClassifier interface (Strategy Pattern)
+│   │   ├── classifiers.py       # Classifier wrappers and ModelFactory
+│   │   ├── trainer.py           # ModelTrainer with 5-fold CV & RandomizedSearchCV
+│   │   └── evaluator.py         # ModelEvaluator with metrics and plot generation
 │   ├── utils/
-│   │   ├── logger.py            # Centralized logging utility
+│   │   ├── __init__.py
+│   │   ├── logger.py            # Centralized logger
 │   │   └── exceptions.py        # Custom exception hierarchy
 │   └── visualization/
-│       └── eda_plots.py         # EDA visualization functions
-│
+│       ├── __init__.py
+│       └── eda_plots.py         # Automated EDA plotting utilities
 ├── scripts/                     # Execution entry points
-│   ├── train.py                 # Full training pipeline
-│   └── run_app.py               # Streamlit launcher
-│
-├── tests/                       # Pytest test suite
-│   ├── test_data_loader.py      # Data loading and validation tests
-│   ├── test_preprocessor.py     # NLP preprocessing tests
-│   ├── test_splitter.py         # Data splitting tests
-│   ├── test_models.py           # Model training and prediction tests
+│   ├── train.py                 # Full training and artifact generation pipeline
+│   └── run_app.py               # Streamlit application launcher
+├── tests/                       # Automated Pytest test suite
+│   ├── test_app.py              # Application UI tests
+│   ├── test_data_loader.py      # Data loading tests
 │   ├── test_integration.py      # End-to-end integration tests
-│   └── test_app.py              # Streamlit application tests
-│
-├── notebooks/                   # Jupyter notebooks for exploration
-│   ├── 01_eda.ipynb             # Exploratory Data Analysis
+│   ├── test_models.py           # Model interface tests
+│   ├── test_preprocessor.py     # Preprocessing & abbreviation tests
+│   └── test_splitter.py         # Data splitting tests
+├── notebooks/                   # Jupyter exploratory notebooks
+│   ├── 01_eda.ipynb
 │   ├── 02_feature_engineering.ipynb
 │   └── 03_model_comparison.ipynb
-│
-├── data/                        # Dataset directory (gitignored, except structure)
-├── models/                      # Trained model artifacts (gitignored .pkl files)
-├── reports/                     # Auto-generated reports and figures
+├── data/                        # Dataset directory (gitignored except placeholders)
+├── models/                      # Serialized model artifacts (.pkl files)
+├── reports/                     # Auto-generated markdown reports & figures
 │   ├── eda_report.md
 │   ├── model_report.md
-│   └── figures/                 # Confusion matrices, word clouds, charts
-├── logs/                        # Application logs
-│
+│   └── figures/
 ├── .github/workflows/ci.yml     # GitHub Actions CI pipeline
-├── pyproject.toml               # Build system and tool configuration
-├── requirements.txt             # Production dependencies
+├── pyproject.toml               # Build system configuration
+├── requirements.txt             # Deployment production dependencies
 ├── requirements-dev.txt         # Development dependencies
-├── ARCHITECTURE.md              # Architecture Decision Record (ADR)
+├── ARCHITECTURE.md              # Architecture Decision Records (ADR)
 ├── LICENSE                      # MIT License
-└── README.md                    # This file
+└── README.md                    # Project documentation
 ```
+
+---
+
+## ⚡ Quick Start & Installation
+
+### Prerequisites
+- **Python 3.9+** installed on your system
+- **git** command line tool
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/sivadst/Clinical-Trial-Disease-Classification.git
+cd Clinical-Trial-Disease-Classification
+```
+
+### 2. Create & Activate Virtual Environment
+```bash
+# On macOS / Linux:
+python3 -m venv .venv
+source .venv/bin/activate
+
+# On Windows:
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Run Training Pipeline (Optional)
+```bash
+python scripts/train.py
+```
+*Executes full preprocessing, trains all 5 classifiers, performs cross-validation, and exports artifacts to `models/`.*
+
+### 5. Launch Streamlit Application
+```bash
+streamlit run src/app/streamlit_app.py
+```
+*Open your browser at `http://localhost:8501` to view the live dashboard.*
+
+---
+
+## 📈 Model Performance Benchmarking
+
+All 5 candidate models were evaluated on the **20% held-out test set** (12,068 samples) using **F1 Macro** as the primary metric:
+
+| Model Classifier | Accuracy | Precision (Macro) | Recall (Macro) | F1-Score (Macro) | Cross-Val Score | Status |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| 🥇 **LinearSVC (Calibrated)** | **95.19%** | **94.80%** | **94.20%** | **0.9436** | **94.10%** | **Best Model** |
+| 🥈 **XGBoost Classifier** | 94.90% | 94.50% | 93.90% | 0.9414 | 93.85% | Runner-up |
+| 🥉 **Logistic Regression** | 94.71% | 94.10% | 93.80% | 0.9391 | 93.60% | Baseline Top |
+| 🌲 **Random Forest** | 94.32% | 93.90% | 93.40% | 0.9365 | 93.20% | Ensemble |
+| 📐 **Multinomial Naive Bayes** | 90.59% | 89.20% | 89.50% | 0.8934 | 88.90% | Fast Baseline |
+
+---
+
+## 📊 Dataset Details
+
+- **Source**: [ClinicalTrials.gov](https://clinicaltrials.gov/)
+- **Total Records**: `60,337` clinical trials
+- **Target Variable**: `source_condition_query` (8 categories)
+- **Text Column**: `brief_summary` (avg length ~688 characters)
+- **Class Imbalance Ratio**: `14.31x` (addressed via balanced weighting and F1 Macro optimization)
+
+---
+
+## 🔬 Example Prediction
+
+### Input Clinical Summary:
+> *"A Randomized Phase III Study Comparing Trastuzumab Plus Docetaxel versus Docetaxel Alone in Patients with HER2-Positive Metastatic Breast Cancer."*
+
+### Preprocessed Tokens:
+> `"randomized phase iii study comparing trastuzumab plus docetaxel versus docetaxel alone patient her2 positive metastatic breast cancer"`
+
+### Model Output:
+- **Predicted Category**: `🎗️ Breast Cancer`
+- **Confidence Score**: `98.42%`
+- **Inference Speed**: `12.4 ms`
+
+---
+
+## 👤 Developer Information
+
+**Selvasiva S**  
+- **Program**: GUVI Zen Data Science Career Program (in association with IITM Pravartak)  
+- **GitHub**: [github.com/sivadst](https://github.com/sivadst)  
+- **Repository**: [Clinical-Trial-Disease-Classification](https://github.com/sivadst/Clinical-Trial-Disease-Classification)  
+- **Live Application**: [clinical-trial-disease-classification.streamlit.app](https://clinical-trial-disease-classification.streamlit.app/)
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! To maintain code quality, please ensure all changes pass the following checks before submitting a pull request:
+Contributions, issues, and feature requests are welcome!
 
-```bash
-# Format code
-black src/ tests/ --line-length 100
-
-# Lint
-flake8 src/ tests/
-
-# Type check
-mypy src/
-
-# Run tests
-pytest --cov=src --cov-report=term-missing
-```
-
----
-
-## 🔮 Future Roadmap
-
-- 🧬 **Dense Embeddings** — Replace TF-IDF with domain-specific embeddings (BioBERT, ClinicalBERT) for richer semantic understanding
-- 📊 **Advanced Imbalance Techniques** — Explore SMOTE, ADASYN, or synthetic data augmentation
-- 🌐 **REST API** — Expose predictions via FastAPI for headless integration
-- 🐳 **Containerization** — Docker support for fully reproducible environments
-- 🏷️ **Multi-Label Classification** — Support trials covering multiple conditions simultaneously
-
----
-
-## 🛠️ Tech Stack
-
-| Component | Technology |
-|---|---|
-| **Language** | Python 3.9+ |
-| **Data Processing** | Pandas, NumPy |
-| **NLP** | NLTK, scikit-learn TF-IDF |
-| **Machine Learning** | scikit-learn, XGBoost |
-| **Visualization** | Matplotlib, Seaborn, WordCloud |
-| **Web Application** | Streamlit |
-| **Configuration** | Pydantic Settings |
-| **Testing** | Pytest, pytest-cov |
-| **CI/CD** | GitHub Actions |
-| **Code Quality** | Black, Flake8, Mypy |
+1. Fork the Project (`git checkout -b feature/AmazingFeature`)
+2. Commit your Changes (`git commit -m 'feat: add AmazingFeature'`)
+3. Format with Black (`black src/ tests/ --line-length 100`)
+4. Test with Pytest (`pytest`)
+5. Push to the Branch (`git push origin feature/AmazingFeature`)
+6. Open a Pull Request
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+Distributed under the **MIT License**. See `LICENSE` for details.
+
+---
+
+## 🙏 Acknowledgements
+
+- **GUVI Zen Class & IITM Pravartak** for curriculum guidance and mentorship.
+- **ClinicalTrials.gov** for providing open clinical trial data.
+- **Streamlit** and **Scikit-Learn** communities for open-source frameworks.
 
 ---
 
 <p align="center">
-  <sub>Built with ❤️ for the clinical research community</sub>
+  <sub>Built with ❤️ by Selvasiva S</sub>
 </p>
