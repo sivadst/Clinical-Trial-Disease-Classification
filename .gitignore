@@ -47,6 +47,7 @@ data/*
 !data/raw/
 !data/processed/
 !data/external/
+data/raw/*.csv
 models/*.pkl
 models/*.joblib
 !models/.gitkeep
