@@ -228,7 +228,7 @@ elif page == "Data Explorer":
             filtered_df = filtered_df[filtered_df[config.TARGET_COLUMN].isin(selected_classes)]
 
         st.write(f"Showing {len(filtered_df):,} of {len(df):,} trials.")
-        st.dataframe(filtered_df, use_container_width=True)
+        st.dataframe(filtered_df, width="stretch")
 
         csv = filtered_df.to_csv(index=False).encode("utf-8")
         st.download_button(
@@ -281,7 +281,7 @@ elif page == "Prediction":
 
     col1, col2 = st.columns([1, 4])
     with col1:
-        classify_btn = st.button("🔍 Classify", type="primary", use_container_width=True)
+        classify_btn = st.button("🔍 Classify", type="primary", width="stretch")
     with col2:
         pass  # placeholder for spacing or clear logic
 
@@ -331,7 +331,7 @@ elif page == "Batch Prediction":
         try:
             batch_df = pd.read_csv(uploaded_file)
             st.write("Data Preview:")
-            st.dataframe(batch_df.head(), use_container_width=True)
+            st.dataframe(batch_df.head(), width="stretch")
 
             text_cols = [c for c in batch_df.columns if batch_df[c].dtype == "object"]
             if not text_cols:
@@ -359,7 +359,7 @@ elif page == "Batch Prediction":
                             batch_df["Confidence"] = max_probs
 
                             st.success("Batch Prediction Complete!")
-                            st.dataframe(batch_df, use_container_width=True)
+                            st.dataframe(batch_df, width="stretch")
 
                             csv = batch_df.to_csv(index=False).encode("utf-8")
                             st.download_button(
