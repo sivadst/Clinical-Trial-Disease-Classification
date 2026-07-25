@@ -5,8 +5,13 @@ import joblib
 import os
 from PIL import Image
 
-# Ensure the root directory is in the sys path for relative imports when running from elsewhere
+import sys
+from pathlib import Path
 
+# Ensure the root directory is in the sys path for relative imports when running from elsewhere
+root_dir = Path(__file__).resolve().parent.parent.parent
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
 
 from config.settings import config
 from src.data.preprocessor import TextPreprocessor
