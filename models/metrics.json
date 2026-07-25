@@ -1,0 +1,10 @@
+{
+    "LinearSVC": {
+        "accuracy": 0.94,
+        "f1_macro": 0.94
+    },
+    "XGBoost": {
+        "accuracy": 0.93,
+        "f1_macro": 0.94
+    }
+}
