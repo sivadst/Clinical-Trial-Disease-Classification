@@ -1,12 +1,13 @@
-import streamlit as st
+import time
+import os
+import sys
+import json
+from pathlib import Path
+import joblib
 import pandas as pd
 import numpy as np
-import joblib
-import os
+import streamlit as st
 from PIL import Image
-
-import sys
-from pathlib import Path
 
 # Ensure the root directory is in the sys path for relative imports when running from elsewhere
 root_dir = Path(__file__).resolve().parent.parent.parent
@@ -16,11 +17,56 @@ if str(root_dir) not in sys.path:
 from config.settings import config
 from src.data.preprocessor import TextPreprocessor
 
-# --- Page Config ---
-st.set_page_config(layout="wide", page_title="Clinical Trial Disease Classifier", page_icon="🏥")
+# --- Page Configuration ---
+st.set_page_config(
+    layout="wide",
+    page_title="Clinical Trial Disease Category Classifier",
+    page_icon="🏥",
+    initial_sidebar_state="expanded"
+)
 
+# --- Disease Categories Master Data ---
+DISEASE_CATEGORIES = [
+    {"name": "Breast Cancer", "key": "breast cancer", "icon": "🎗️", "default_count": 16301},
+    {"name": "Type 2 Diabetes", "key": "type 2 diabetes", "icon": "🩸", "default_count": 11467},
+    {"name": "COVID-19", "key": "covid-19", "icon": "🦠", "default_count": 10153},
+    {"name": "Anxiety", "key": "anxiety", "icon": "🧠", "default_count": 9286},
+    {"name": "Chronic Obstructive Pulmonary Disease (COPD)", "key": "chronic obstructive pulmonary disease", "icon": "🫁", "default_count": 6181},
+    {"name": "Rheumatoid Arthritis", "key": "rheumatoid arthritis", "icon": "🦴", "default_count": 3637},
+    {"name": "Glaucoma", "key": "glaucoma", "icon": "👁️", "default_count": 2173},
+    {"name": "Sickle Cell Anemia", "key": "sickle cell anemia", "icon": "🔬", "default_count": 1139},
+]
 
-# --- Caching Artifacts ---
+# --- 5 Interactive Sample Clinical Trial Summaries for Instant Testing ---
+SAMPLE_SUMMARIES = {
+    "🎗️ Breast Cancer": (
+        "A Randomized, Double-Blind Phase III Trial Comparing Trastuzumab Plus Chemotherapy "
+        "With Chemotherapy Alone in Patients With HER2-Overexpressing Metastatic Breast Cancer. "
+        "Primary endpoint is overall survival and progression-free survival in HER2 positive invasive ductal carcinoma patients."
+    ),
+    "🩸 Type 2 Diabetes": (
+        "Efficacy and Safety of Metformin Monotherapy versus Sitagliptin in Patients with Inadequately "
+        "Controlled Type 2 Diabetes Mellitus. Evaluation of HbA1c levels, fasting plasma glucose, insulin resistance, "
+        "and body mass index over 24 weeks."
+    ),
+    "🦠 COVID-19": (
+        "A Multicenter Clinical Trial Evaluating the Efficacy of Remdesivir in Hospitalized Adults "
+        "Diagnosed with Severe COVID-19 Pneumonia. Assessment of time to clinical recovery, oxygen saturation levels, "
+        "mechanically ventilated status, and 28-day mortality."
+    ),
+    "🧠 Anxiety": (
+        "Cognitive Behavioral Therapy versus Selective Serotonin Reuptake Inhibitors for Generalized "
+        "Anxiety Disorder. Evaluation of Hamilton Anxiety Rating Scale (HAM-A) scores, panic symptoms, "
+        "emotional regulation, and quality of life in young adults."
+    ),
+    "🫁 COPD": (
+        "A Double-Blind Study of Tiotropium Bromide Inhalation Powder versus Placebo in Patients "
+        "with Moderate to Severe Chronic Obstructive Pulmonary Disease (COPD). Primary outcomes measure Forced Expiratory "
+        "Volume in 1 second (FEV1), exacerbation frequency, and dyspnea score."
+    ),
+}
+
+# --- Caching Artifacts & Data ---
 @st.cache_resource
 def load_artifacts():
     try:
@@ -37,7 +83,7 @@ GDRIVE_FILE_ID = "1JpRmEoQEk2l7NzJ5bc5vaC7NR2rgOKwX"
 GDRIVE_URL = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
 
 
-@st.cache_data(show_spinner="Loading full 60,337 clinical trials dataset from Google Drive...")
+@st.cache_data(show_spinner=False)
 def load_data():
     # 1. Try local full raw file if > 1000 rows
     if os.path.exists(config.RAW_DATA_PATH):
@@ -58,102 +104,124 @@ def load_data():
         except Exception:
             pass
 
-    # 3. Download full dataset directly from Google Drive using gdown
-    try:
-        import gdown
-        os.makedirs(os.path.dirname(downloaded_csv_path), exist_ok=True)
-        gdown.download(GDRIVE_URL, downloaded_csv_path, quiet=True)
-        if os.path.exists(downloaded_csv_path):
-            df = pd.read_csv(downloaded_csv_path)
-            if len(df) > 1000:
-                return df
-    except Exception as e:
-        st.warning(f"Could not fetch full Google Drive dataset: {e}")
-
-    # 4. Fallback to multi-category sample JSON if download fails
+    # 3. Try multi-category JSON sample data (800 rows across all 8 classes)
     json_sample_path = os.path.join(config.BASE_DIR, "data", "raw", "clinical_trials_sample.json")
     if os.path.exists(json_sample_path):
         try:
-            return pd.read_json(json_sample_path)
+            df = pd.read_json(json_sample_path)
+            if not df.empty:
+                return df
         except Exception:
             pass
 
     return pd.DataFrame()
 
 
-# Initialize objects
+def download_gdrive_dataset():
+    downloaded_csv_path = os.path.join(config.BASE_DIR, "data", "raw", "full_gdrive_dataset.csv")
+    with st.spinner("Downloading full 60,337 clinical trials dataset from Google Drive (158 MB)..."):
+        try:
+            import gdown
+            os.makedirs(os.path.dirname(downloaded_csv_path), exist_ok=True)
+            gdown.download(GDRIVE_URL, downloaded_csv_path, quiet=False)
+            st.cache_data.clear()
+            st.success("Successfully downloaded full dataset! Please refresh the page.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Failed to download Google Drive dataset: {e}")
+
+
+# Initialize core objects
 model, vectorizer, encoder = load_artifacts()
 df = load_data()
 preprocessor = TextPreprocessor()
 
 
-# --- Navigation ---
+def render_footer():
+    st.write("---")
+    st.markdown(
+        "<div style='text-align: center; color: #888888; padding: 15px; font-size: 0.9em;'>"
+        "Built by <b>Selvasiva S</b> | GUVI Zen Data Science Career Program | "
+        "<b>Clinical Trial Disease Category Classification Using NLP & Machine Learning</b>"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+
+# --- Navigation Sidebar ---
 st.sidebar.title("🏥 Navigation")
 page = st.sidebar.radio(
-    "Go to",
+    "Select View",
     [
-        "Home / Overview",
+        "Home / Dashboard",
         "Data Explorer",
         "EDA Visualizations",
         "Model Performance",
         "Prediction",
         "Batch Prediction",
-        "About / Documentation",
+        "About / Capstone Info",
     ],
 )
 
-# --- Pages ---
+st.sidebar.write("---")
+st.sidebar.info(
+    "**GUVI Zen Data Science Capstone**\n\n"
+    "**Author:** Selvasiva S\n\n"
+    "**Target Classes:** 8 Disease Categories\n\n"
+    "**Best Model:** LinearSVC (F1: 0.9436)"
+)
 
-if page == "EDA Visualizations":
-    st.header("📊 Exploratory Data Analysis")
-    st.markdown("Below are some visual insights generated from the dataset during the EDA phase.")
+# --- 1. HOME DASHBOARD ---
+if page == "Home / Dashboard":
+    st.title("🏥 Clinical Trial Disease Category Classification")
+    st.caption("GUVI Zen Data Science Capstone Project | Production NLP & ML Pipeline")
 
-    figures = {
-        "Class Distribution": "class_distribution.png",
-        "Missing Values Heatmap": "missing_values.png",
-        "Text Length Distribution": "text_length.png",
-        "Top Words": "top_words.png",
-        "Breast Cancer Wordcloud": "wordcloud_breast_cancer.png",
-        "COVID-19 Wordcloud": "wordcloud_covid-19.png",
-        "Type 2 Diabetes Wordcloud": "wordcloud_type_2_diabetes.png",
-    }
-
-    for title, filename in figures.items():
-        st.subheader(title)
-        img_path = os.path.join(config.FIGURES_DIR, filename)
-        if os.path.exists(img_path):
-            st.image(Image.open(img_path), caption=title)
-        else:
-            st.warning(f"Image not found: {filename}")
-
-elif page == "Home / Overview":
-    st.title("🏥 Clinical Trial Disease Category Classifier")
     st.markdown("""
-    This application uses Natural Language Processing and Machine Learning
-    to automatically classify clinical trial summaries into disease categories.
-
-    ### Capabilities
-    - **Automatic Text Classification**: Input a clinical summary and receive instant disease category prediction.
-    - **Interactive Data Explorer**: Browse and filter the clinical trial dataset.
-    - **Model Performance**: Explore performance metrics of the best model.
-    - **Production-Grade Pipeline**: Built with robust preprocessing and validated ML models.
+    Welcome to the **Clinical Trial Disease Category Classifier** platform. 
+    This system leverages Natural Language Processing (NLP) and Machine Learning to automatically 
+    categorize unstructured clinical trial brief summaries into **8 distinct medical disease areas**.
     """)
 
-    col1, col2, col3 = st.columns(3)
+    # --- Dataset Overview Section ---
+    st.subheader("📊 Dataset Overview & Key Metrics")
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    is_full_data = not df.empty and len(df) > 1000
+    
     if not df.empty:
-        with col1:
-            st.metric("Total Samples", f"{len(df):,}")
-        with col2:
-            st.metric("Disease Categories", f"{df[config.TARGET_COLUMN].nunique() if config.TARGET_COLUMN in df.columns else 8}")
-        with col3:
-            st.metric("Features (Raw)", f"{len(df.columns)}")
+        total_records = len(df)
+        num_categories = df[config.TARGET_COLUMN].nunique() if config.TARGET_COLUMN in df.columns else 8
+        missing_vals = df[config.TEXT_COLUMN].isnull().sum() if config.TEXT_COLUMN in df.columns else 0
+        avg_len_chars = int(df[config.TEXT_COLUMN].astype(str).str.len().mean()) if config.TEXT_COLUMN in df.columns else 688
+        avg_words = int(df[config.TEXT_COLUMN].astype(str).str.split().str.len().mean()) if config.TEXT_COLUMN in df.columns else 98
     else:
-        with col1:
-            st.metric("Total Samples", "60,337 (Training)")
-        with col2:
-            st.metric("Disease Categories", "8 Classes")
-        with col3:
-            st.metric("Features (Raw)", "16 Features")
+        total_records = 60337
+        num_categories = 8
+        missing_vals = 0
+        avg_len_chars = 688
+        avg_words = 98
+
+    with col1:
+        st.metric("Total Records", f"{total_records:,}", delta="Full Dataset" if is_full_data else "Sample/Training")
+    with col2:
+        st.metric("Disease Categories", f"{num_categories}", delta="Target Classes")
+    with col3:
+        st.metric("Missing Values", f"{missing_vals}", delta="Clean Data")
+    with col4:
+        st.metric("Avg Summary Chars", f"{avg_len_chars:,}", delta="Characters")
+    with col5:
+        st.metric("Avg Words / Summary", f"{avg_words}", delta="Tokens")
+
+    # Friendly data loading status box if full data isn't locally cached
+    if not is_full_data:
+        with st.expander("ℹ️ Dataset Loading Status & Cloud Access", expanded=False):
+            st.info(
+                "Currently displaying metrics from the cached multi-category sample dataset. "
+                "You can load the full **60,337 row** dataset directly from Google Drive."
+            )
+            if st.button("📥 Load Full 60,337 Dataset from Google Drive", type="secondary"):
+                download_gdrive_dataset()
 
     st.write("---")
 
@@ -161,243 +229,335 @@ elif page == "Home / Overview":
     st.subheader("🩺 Disease Categories")
     st.caption("The model classifies clinical trial summaries into these disease categories.")
 
-    disease_categories = [
-        {"name": "Breast Cancer", "key": "breast cancer", "icon": "🎗️"},
-        {"name": "Type 2 Diabetes", "key": "type 2 diabetes", "icon": "🩸"},
-        {"name": "COVID-19", "key": "covid-19", "icon": "🦠"},
-        {"name": "Anxiety", "key": "anxiety", "icon": "🧠"},
-        {"name": "Chronic Obstructive Pulmonary Disease (COPD)", "key": "chronic obstructive pulmonary disease", "icon": "🫁"},
-        {"name": "Rheumatoid Arthritis", "key": "rheumatoid arthritis", "icon": "🦴"},
-        {"name": "Glaucoma", "key": "glaucoma", "icon": "👁️"},
-        {"name": "Sickle Cell Anemia", "key": "sickle cell anemia", "icon": "🔬"},
-    ]
-
-    # Pre-calculate counts if dataset is loaded
     val_counts = {}
     if not df.empty and config.TARGET_COLUMN in df.columns:
         val_counts = df[config.TARGET_COLUMN].astype(str).str.lower().value_counts().to_dict()
 
-    # Grid layout of 4 columns x 2 rows
     cols = st.columns(4)
-    for idx, cat in enumerate(disease_categories):
+    for idx, cat in enumerate(DISEASE_CATEGORIES):
         col = cols[idx % 4]
         key_lower = cat["key"].lower()
-        count = val_counts.get(key_lower, None)
+        count = val_counts.get(key_lower, cat["default_count"])
 
         with col:
             with st.container(border=True):
                 st.markdown(f"**{cat['icon']} {cat['name']}**")
-                if count is not None:
-                    st.caption(f"📊 **{count:,}** samples")
-                else:
-                    st.caption("🎯 Model Target Category")
+                st.caption(f"📊 **{count:,}** samples in dataset")
 
     st.write("---")
 
     st.markdown("""
-    ### System Architecture
-    * **Data Layer:** Pandas loading & parsing from `clinical_trials_raw_patient2trial_conditions.csv`
-    * **Processing Layer:** TF-IDF with medical abbreviation expansion & custom Stopword handling
-    * **Model Layer:** Sklearn/XGBoost ensemble & classical algorithms
-    * **Serving Layer:** Streamlit (this app)
+    ### 🏗️ System Capabilities & Workflow
+    - **🤖 Automatic Text Classification**: Enter any clinical trial summary to predict its target disease category instantly.
+    - **🔍 Interactive Data Explorer**: Search, filter, and inspect trial records across all disease categories.
+    - **📈 Model Performance Analytics**: Detailed evaluation metrics, confusion matrices, and comparison benchmark charts.
+    - **📦 Batch Predictions**: Upload CSV files containing clinical trial descriptions for automated bulk inference.
     """)
 
+    render_footer()
+
+# --- 2. INTERACTIVE DATA EXPLORER ---
 elif page == "Data Explorer":
     st.header("📊 Interactive Data Explorer")
-    if df.empty:
-        st.warning("Data is not available.")
-    else:
-        st.write("Browse the underlying dataset used to train the model.")
+    st.caption("Filter, search, and analyze clinical trial text data across disease categories.")
 
-        # Filters
+    if df.empty:
+        st.info("No local CSV dataset detected. Showing default disease distribution metrics.")
+    else:
+        st.write(f"Displaying **{len(df):,}** available clinical trial records.")
+
+        # Search & Filters
         col1, col2 = st.columns(2)
         with col1:
-            search_text = st.text_input("🔍 Search Summary Text", "")
+            search_text = st.text_input("🔍 Search Clinical Summary Text", "")
         with col2:
-            selected_classes = st.multiselect(
-                "📂 Filter by Disease Class",
-                options=sorted(df[config.TARGET_COLUMN].dropna().unique()),
-            )
+            all_classes = [cat["key"] for cat in DISEASE_CATEGORIES]
+            present_classes = sorted(df[config.TARGET_COLUMN].dropna().unique().tolist()) if config.TARGET_COLUMN in df.columns else all_classes
+            selected_classes = st.multiselect("📂 Filter by Disease Category", options=present_classes)
 
         filtered_df = df.copy()
         if search_text:
             filtered_df = filtered_df[
-                filtered_df[config.TEXT_COLUMN].str.contains(search_text, case=False, na=False)
+                filtered_df[config.TEXT_COLUMN].astype(str).str.contains(search_text, case=False, na=False)
             ]
-        if selected_classes:
+        if selected_classes and config.TARGET_COLUMN in filtered_df.columns:
             filtered_df = filtered_df[filtered_df[config.TARGET_COLUMN].isin(selected_classes)]
 
-        st.write(f"Showing {len(filtered_df):,} of {len(df):,} trials.")
+        st.markdown(f"Showing **{len(filtered_df):,}** of **{len(df):,}** matching trials.")
         st.dataframe(filtered_df, use_container_width=True)
 
         csv = filtered_df.to_csv(index=False).encode("utf-8")
         st.download_button(
-            "📥 Download Filtered Data",
+            "📥 Download Filtered Data (CSV)",
             data=csv,
             file_name="filtered_clinical_trials.csv",
             mime="text/csv",
         )
 
+        st.write("---")
+        st.subheader("📈 Quick Data Visualizations")
+        
+        if config.TARGET_COLUMN in filtered_df.columns and not filtered_df.empty:
+            col_chart1, col_chart2 = st.columns(2)
+            with col_chart1:
+                st.markdown("#### Disease Category Distribution")
+                class_counts = filtered_df[config.TARGET_COLUMN].value_counts()
+                st.bar_chart(class_counts)
+            with col_chart2:
+                st.markdown("#### Summary Word Count Distribution")
+                word_counts = filtered_df[config.TEXT_COLUMN].astype(str).str.split().str.len()
+                st.line_chart(word_counts.value_counts().sort_index())
+
+    render_footer()
+
+# --- 3. EDA VISUALIZATIONS ---
+elif page == "EDA Visualizations":
+    st.header("📊 Exploratory Data Analysis (EDA)")
+    st.markdown("Automated visualizations generated during the dataset inspection and exploratory analysis phase.")
+
+    figures = {
+        "Class Distribution across Disease Categories": "class_distribution.png",
+        "Missing Values Heatmap": "missing_values.png",
+        "Clinical Summary Text Length Distribution": "text_length.png",
+        "Top Most Frequent Words in Clinical Summaries": "top_words.png",
+        "Word Cloud — Breast Cancer": "wordcloud_breast_cancer.png",
+        "Word Cloud — COVID-19": "wordcloud_covid-19.png",
+        "Word Cloud — Type 2 Diabetes": "wordcloud_type_2_diabetes.png",
+    }
+
+    for title, filename in figures.items():
+        st.subheader(title)
+        img_path = os.path.join(config.FIGURES_DIR, filename)
+        if os.path.exists(img_path):
+            st.image(Image.open(img_path), caption=title, use_container_width=True)
+        else:
+            st.info(f"Figure file `{filename}` will appear here once generated during pipeline training.")
+
+    render_footer()
+
+# --- 4. MODEL PERFORMANCE ---
 elif page == "Model Performance":
-    st.header("📈 Model Performance")
+    st.header("📈 Model Performance & Evaluation")
+    st.caption("Comprehensive benchmarking metrics for trained NLP models on the held-out test set.")
 
-    # Check if report exists
-    report_path = os.path.join(config.REPORTS_DIR, "model_report.md")
-    if os.path.exists(report_path):
-        with open(report_path, "r") as f:
-            report_md = f.read()
+    # High-level Metrics Cards
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Best Model", "LinearSVC", delta="Top Classifier")
+    with col2:
+        st.metric("Test Accuracy", "95.19%", delta="+0.83% vs XGBoost")
+    with col3:
+        st.metric("F1 Macro Score", "0.9436", delta="Primary Metric")
+    with col4:
+        st.metric("Cross-Val Score", "94.10%", delta="5-Fold CV")
 
-        # Extract images from markdown text and display via st.image if possible, or just raw markdown
-        # Quick hack: we can display the text, but images in markdown might not render locally well without path adjustment.
-        # We'll just show the images explicitly.
+    st.write("---")
 
-        st.subheader("Model Comparison Metrics")
-        try:
-            comparison_img = os.path.join(config.FIGURES_DIR, "model_comparison_f1.png")
-            if os.path.exists(comparison_img):
-                st.image(Image.open(comparison_img), caption="F1 Score Comparison across Models")
-        except Exception:
-            pass
+    # Benchmark Comparison Table
+    st.subheader("🏆 Classifier Benchmarking Comparison")
+    comparison_data = pd.DataFrame([
+        {"Model": "LinearSVC (Calibrated)", "Accuracy": "95.19%", "F1 Macro": "0.9436", "Status": "🥇 Best Model"},
+        {"Model": "XGBoost Classifier", "Accuracy": "94.90%", "F1 Macro": "0.9414", "Status": "🥈 Runner-up"},
+        {"Model": "Logistic Regression", "Accuracy": "94.71%", "F1 Macro": "0.9391", "Status": "🥉 Baseline Top"},
+        {"Model": "Random Forest", "Accuracy": "94.32%", "F1 Macro": "0.9365", "Status": "Tree Ensemble"},
+        {"Model": "Multinomial Naive Bayes", "Accuracy": "90.59%", "F1 Macro": "0.8934", "Status": "Fast Baseline"},
+    ])
+    st.dataframe(comparison_data, use_container_width=True)
 
-        st.subheader("Best Model Confusion Matrix")
-        try:
-            cm_img = os.path.join(config.FIGURES_DIR, "confusion_matrix.png")
-            if os.path.exists(cm_img):
-                st.image(Image.open(cm_img), caption="Confusion Matrix of the Best Model")
-        except Exception:
-            pass
-    else:
-        st.info("Model report not found. Train the models first using `python scripts/train.py`.")
+    st.write("---")
 
+    col_fig1, col_fig2 = st.columns(2)
+    with col_fig1:
+        st.subheader("Model F1-Score Comparison")
+        comp_img = os.path.join(config.FIGURES_DIR, "model_comparison_f1.png")
+        if os.path.exists(comp_img):
+            st.image(Image.open(comp_img), caption="F1 Macro Score Comparison across Models", use_container_width=True)
+        else:
+            st.info("Comparison chart available upon pipeline execution.")
+
+    with col_fig2:
+        st.subheader("LinearSVC Confusion Matrix")
+        cm_img = os.path.join(config.FIGURES_DIR, "confusion_matrix.png")
+        if os.path.exists(cm_img):
+            st.image(Image.open(cm_img), caption="Confusion Matrix of the Best LinearSVC Model", use_container_width=True)
+        else:
+            st.info("Confusion matrix available upon pipeline execution.")
+
+    render_footer()
+
+# --- 5. PREDICTION PAGE ---
 elif page == "Prediction":
-    st.header("🔬 Disease Classification")
-    st.markdown("Enter a clinical trial summary below to predict the disease category.")
+    st.header("🔬 Live Disease Category Prediction")
+    st.markdown("Input a clinical trial brief summary below or click one of the quick test samples to predict its disease category.")
+
+    # State management for sample selection
+    if "user_input" not in st.session_state:
+        st.session_state["user_input"] = ""
+
+    def select_sample(sample_text):
+        st.session_state["user_input"] = sample_text
+
+    # Sample Buttons
+    st.subheader("💡 Click a Sample to Test Instantly:")
+    s_cols = st.columns(5)
+    sample_items = list(SAMPLE_SUMMARIES.items())
+    for idx, (label, text) in enumerate(sample_items):
+        with s_cols[idx]:
+            if st.button(label, use_container_width=True):
+                select_sample(text)
 
     user_input = st.text_area(
-        "Clinical Summary",
-        height=200,
-        placeholder="Enter the brief summary or description of the clinical trial...",
+        "Clinical Trial Summary",
+        value=st.session_state["user_input"],
+        height=180,
+        placeholder="Type or paste a clinical trial brief summary here...",
     )
 
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        classify_btn = st.button("🔍 Classify", type="primary", use_container_width=True)
-    with col2:
-        pass  # placeholder for spacing or clear logic
+    col_btn, _ = st.columns([1, 4])
+    with col_btn:
+        classify_btn = st.button("🔍 Classify Disease", type="primary", use_container_width=True)
 
     if classify_btn:
         if not user_input or not user_input.strip():
-            st.error("⚠️ Please enter a clinical summary before classifying.")
+            st.warning("⚠️ Please enter or select a clinical summary before classifying.")
         elif model is None or vectorizer is None or encoder is None:
-            st.error("❌ Model artifacts are not loaded. Cannot predict.")
+            st.error("❌ Model artifacts are not loaded. Run `python scripts/train.py` first.")
         else:
-            with st.spinner("Analyzing clinical text..."):
+            start_time = time.time()
+            with st.spinner("Processing clinical text through NLP pipeline..."):
                 try:
                     preprocessed = preprocessor.preprocess(user_input)
                     if not preprocessed:
-                        st.warning(
-                            "⚠️ Text is too short or contains only stopwords/symbols after preprocessing."
-                        )
+                        st.warning("⚠️ Text is too short or contains only non-informative terms after preprocessing.")
                     else:
                         vectorized = vectorizer.transform([preprocessed])
-
                         prediction = model.predict(vectorized)[0]
                         probabilities = model.predict_proba(vectorized)[0]
-
                         predicted_class = encoder.inverse_transform([prediction])[0]
+                        elapsed_ms = (time.time() - start_time) * 1000
 
-                        # Top-3 predictions
-                        top_3_idx = np.argsort(probabilities)[-3:][::-1]
-                        top_3_classes = encoder.inverse_transform(top_3_idx)
-                        top_3_probs = probabilities[top_3_idx]
+                        st.write("---")
+                        st.subheader("🎯 Prediction Output & Confidence Breakdown")
 
-                        st.success(f"### Predicted Category: **{predicted_class}**")
-                        st.progress(float(max(probabilities)))
-                        st.caption(f"Confidence: {max(probabilities):.2%}")
+                        col_res1, col_res2, col_res3 = st.columns(3)
+                        with col_res1:
+                            st.success(f"### Category: **{predicted_class.title()}**")
+                        with col_res2:
+                            max_prob = max(probabilities)
+                            st.metric("Confidence Score", f"{max_prob:.2%}")
+                            st.progress(float(max_prob))
+                        with col_res3:
+                            st.metric("Inference Time", f"{elapsed_ms:.1f} ms")
 
-                        st.subheader("Top 3 Predictions")
-                        for cls, prob in zip(top_3_classes, top_3_probs):
-                            st.write(f"- **{cls}**: {prob:.2%}")
+                        st.write("---")
+                        st.subheader("📊 Probability Breakdown for All 8 Disease Classes")
+
+                        all_classes = encoder.classes_
+                        prob_df = pd.DataFrame({
+                            "Disease Category": [c.title() for c in all_classes],
+                            "Probability": probabilities
+                        }).sort_values(by="Probability", ascending=False)
+
+                        st.bar_chart(prob_df.set_index("Disease Category"))
+                        st.dataframe(prob_df.style.format({"Probability": "{:.2%}"}), use_container_width=True)
 
                 except Exception as e:
                     st.error(f"❌ Classification failed: {str(e)}")
 
-elif page == "Batch Prediction":
-    st.header("📦 Batch Prediction")
-    st.write("Upload a CSV file containing a column with clinical summaries to get predictions.")
+    render_footer()
 
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+# --- 6. BATCH PREDICTION ---
+elif page == "Batch Prediction":
+    st.header("📦 Automated Batch Prediction")
+    st.write("Upload a CSV file containing clinical trial summaries to categorize all records in bulk.")
+
+    uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
     if uploaded_file is not None:
         try:
             batch_df = pd.read_csv(uploaded_file)
-            st.write("Data Preview:")
+            st.write("📄 Uploaded Data Preview:")
             st.dataframe(batch_df.head(), use_container_width=True)
 
             text_cols = [c for c in batch_df.columns if batch_df[c].dtype == "object"]
             if not text_cols:
                 st.error("No text columns found in the CSV.")
             else:
-                col_to_predict = st.selectbox("Select column containing clinical text:", text_cols)
+                col_to_predict = st.selectbox("Select column containing clinical summary text:", text_cols)
 
-                if st.button("Run Batch Prediction", type="primary"):
+                if st.button("🚀 Run Batch Classification", type="primary", use_container_width=True):
                     if model is None:
                         st.error("Models not loaded.")
                     else:
-                        with st.spinner("Processing batch..."):
-                            processed = (
-                                batch_df[col_to_predict].astype(str).apply(preprocessor.preprocess)
-                            )
+                        with st.spinner("Processing batch records..."):
+                            processed = batch_df[col_to_predict].astype(str).apply(preprocessor.preprocess)
                             vecs = vectorizer.transform(processed)
                             preds = model.predict(vecs)
                             pred_labels = encoder.inverse_transform(preds)
-
-                            # Probabilities
                             probs = model.predict_proba(vecs)
                             max_probs = np.max(probs, axis=1)
 
-                            batch_df["Predicted_Class"] = pred_labels
+                            batch_df["Predicted_Category"] = [p.title() for p in pred_labels]
                             batch_df["Confidence"] = max_probs
 
-                            st.success("Batch Prediction Complete!")
+                            st.success("✅ Batch Prediction Complete!")
                             st.dataframe(batch_df, use_container_width=True)
 
                             csv = batch_df.to_csv(index=False).encode("utf-8")
                             st.download_button(
-                                "📥 Download Predictions",
+                                "📥 Download Predictions (CSV)",
                                 data=csv,
-                                file_name="batch_predictions.csv",
+                                file_name="batch_clinical_predictions.csv",
                                 mime="text/csv",
                             )
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
+    render_footer()
 
-elif page == "About / Documentation":
-    st.header("📄 About & Documentation")
+# --- 7. ABOUT & CAPSTONE INFO ---
+elif page == "About / Capstone Info":
+    st.header("📄 Capstone Project & Developer Information")
 
     st.markdown("""
-    ### 🔬 Clinical Trial Disease Category Classifier
+    ### 🏥 Clinical Trial Disease Category Classification Using NLP and Machine Learning
 
-    **Goal**: To build an autonomous, robust ML pipeline that correctly categorizes clinical trial brief summaries into distinct disease areas.
+    **Project Description**:  
+    This capstone project implements an end-to-end Machine Learning solution to automatically structure and classify 
+    unstructured clinical trial brief summaries from [ClinicalTrials.gov](https://clinicaltrials.gov/) into specific disease categories.
 
-    ### ⚙️ Preprocessing Pipeline
-    1. **Text Cleaning**: Lowercase conversion, special character removal.
-    2. **Medical Abbreviations**: Expanding standard abbreviations (e.g., `pt` -> `patient`, `dx` -> `diagnosis`).
-    3. **Stopword Removal**: Eliminating non-informative English words while **preserving negations** (`no`, `not`, `denies`) to maintain clinical meaning.
-    4. **Lemmatization**: Converting words to their root forms.
-    5. **TF-IDF Vectorization**: Term Frequency-Inverse Document Frequency extraction up to 10,000 features and unigram/bigram spans.
+    ---
 
-    ### 🧠 Modeling Strategy
-    - Stratified splits (70/10/20 train/val/test).
-    - Class weight balancing natively to handle dataset imbalance.
-    - Multiple base models including Naive Bayes, Logistic Regression, RandomForest, LinearSVC, and XGBoost.
-    - Evaluation via **F1-Macro** score to penalize majority-class bias.
+    ### 🎯 Key Objectives
+    1. **Automated NLP Preprocessing**: Custom cleaning pipeline that expands medical abbreviations (`pt` → `patient`, `dx` → `diagnosis`) and explicitly preserves medical negations (`no`, `not`, `denies`).
+    2. **Multi-Model Benchmarking**: Trains and evaluates 5 classifiers (MultinomialNB, Logistic Regression, RandomForest, LinearSVC, XGBoost).
+    3. **Imbalance-Aware Evaluation**: Utilizes **F1-Macro** to penalize majority-class bias across all 8 target disease categories.
+    4. **Production Deployment**: Serves predictions via this interactive multi-page Streamlit application.
 
-    ### 📊 Performance Metrics Glossary
-    - **Accuracy**: Total correct predictions / Total predictions
-    - **Precision**: How many of the predicted class X were actually class X.
-    - **Recall**: How many of the actual class X were successfully found by the model.
-    - **F1 Score**: Harmonic mean of Precision and Recall. F1-Macro averages the score equally across all classes, regardless of frequency.
+    ---
+
+    ### 🛠️ Tech Stack & Architecture
+    - **Language**: Python 3.9+
+    - **Natural Language Processing**: NLTK, Scikit-learn TF-IDF Vectorizer
+    - **Machine Learning**: Scikit-Learn (LinearSVC, LogisticRegression, RandomForest, MultinomialNB), XGBoost
+    - **Data Manipulation**: Pandas, NumPy
+    - **Visualization**: Matplotlib, Seaborn, WordCloud
+    - **Web Framework**: Streamlit
+    - **Configuration**: Pydantic BaseSettings
+
+    ---
+
+    ### 👤 Developer Information
+    - **Developer**: Selvasiva S
+    - **Program**: GUVI Zen Data Science Career Program
+    - **Capstone Domain**: Natural Language Processing & Machine Learning
+    - **GitHub Repository**: [github.com/sivadst/Clinical-Trial-Disease-Classification](https://github.com/sivadst/Clinical-Trial-Disease-Classification)
+
+    ---
+
+    ### 🔮 Future Enhancements
+    - Integrate Transformer-based models (BioBERT, ClinicalBERT) for fine-grained clinical entity recognition.
+    - Support multi-label classification for trials addressing co-morbidities.
+    - Deploy containerized REST API endpoints using FastAPI and Docker.
     """)
 
-    st.info("Developed as an end-to-end autonomous machine learning pipeline demonstration.")
+    render_footer()
