@@ -36,31 +36,21 @@ def load_artifacts():
 @st.cache_data
 def load_data():
     json_sample_path = os.path.join(config.BASE_DIR, "data", "raw", "clinical_trials_sample.json")
-    csv_sample_path = os.path.join(config.BASE_DIR, "data", "raw", "clinical_trials_sample.csv")
     
-    # Try full raw data path first if available locally
+    # 1. Try full raw data path if it's the real 60,337 row CSV (>1000 rows)
     if os.path.exists(config.RAW_DATA_PATH):
         try:
             df = pd.read_csv(config.RAW_DATA_PATH)
-            if len(df) > 10:
+            if len(df) > 1000:
                 return df
         except Exception:
             pass
 
-    # Try JSON sample data (not tracked by Git LFS) for Streamlit Cloud
+    # 2. Try multi-category JSON sample data (800 rows across all 8 classes)
     if os.path.exists(json_sample_path):
         try:
             df = pd.read_json(json_sample_path)
             if not df.empty:
-                return df
-        except Exception:
-            pass
-
-    # Try CSV sample data
-    if os.path.exists(csv_sample_path):
-        try:
-            df = pd.read_csv(csv_sample_path)
-            if len(df) > 10:
                 return df
         except Exception:
             pass
@@ -161,20 +151,8 @@ elif page == "Home / Overview":
 
     # Pre-calculate counts if dataset is loaded
     val_counts = {}
-    if not df.empty and config.TARGET_COLUMN in df.columns and len(df) > 1000:
+    if not df.empty and config.TARGET_COLUMN in df.columns:
         val_counts = df[config.TARGET_COLUMN].astype(str).str.lower().value_counts().to_dict()
-    else:
-        # Full dataset counts (60,337 total samples from ClinicalTrials.gov dataset)
-        val_counts = {
-            "breast cancer": 16301,
-            "type 2 diabetes": 11467,
-            "covid-19": 10153,
-            "anxiety": 9286,
-            "chronic obstructive pulmonary disease": 6181,
-            "rheumatoid arthritis": 3637,
-            "glaucoma": 2173,
-            "sickle cell anemia": 1139,
-        }
 
     # Grid layout of 4 columns x 2 rows
     cols = st.columns(4)
