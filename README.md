@@ -310,34 +310,6 @@ streamlit run src/app/streamlit_app.py
 
 ---
 
-## ❓ Frequently Asked Questions (FAQ)
-
-<details>
-<summary><b>1. Why isn't the full 158 MB dataset committed directly to Git?</b></summary>
-<br/>
-GitHub enforces a strict 100 MB per-file limit for standard Git repositories. To ensure clean repository clones, the application features an automatic Google Drive loader (via <code>gdown</code>) that fetches and caches the full 60,337 record dataset on demand, while shipping with a lightweight 800-record sample JSON for immediate offline development.
-</details>
-
-<details>
-<summary><b>2. How do I retrain the models with custom hyperparameter grids?</b></summary>
-<br/>
-Modify the parameter grids in <code>config/settings.py</code> and run <code>python scripts/train.py</code>. The script will automatically execute hyperparameter searches, update metrics in <code>models/metrics.json</code>, and re-serialize the best model.
-</details>
-
-<details>
-<summary><b>3. How do I add a new target disease category?</b></summary>
-<br/>
-Add the new disease category to <code>DISEASE_CATEGORIES</code> in <code>src/app/streamlit_app.py</code> and include corresponding labeled samples in the raw dataset. Running <code>train.py</code> will update the <code>LabelEncoder</code> and retrain the classifier.
-</details>
-
-<details>
-<summary><b>4. How are model artifacts handled in deployment?</b></summary>
-<br/>
-Trained model artifacts (<code>best_model.pkl</code>, <code>tfidf_vectorizer.pkl</code>, <code>label_encoder.pkl</code>) are force-committed to the repository (~2.3 MB total size), enabling instant cloud deployment without requiring training on server startup.
-</details>
-
----
-
 ## 👤 Developer Information
 
 **Selvasiva S**  
